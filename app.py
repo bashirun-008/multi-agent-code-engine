@@ -95,7 +95,7 @@ class IsolatedPythonExecutor:
             sys.stdout = old_stdout
 
 class MultiAgentOrchestrator:
-    def __init__(self, api_key: str, model_id: str = "llama-3.3-70b-versatile"):
+    def __init__(self, api_key: str, model_id: str = "llama-3.3-70b-specdec"):
         self.client = Groq(api_key=api_key)
         self.model_id = model_id
         self.executor = IsolatedPythonExecutor()
