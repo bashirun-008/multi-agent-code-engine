@@ -231,9 +231,9 @@ if run_button:
                     with col2:
                         st.markdown(f'<div class="metric-card"><h3>{iteration}</h3><p>Iterations Required</p></div>', unsafe_allow_html=True)
 
-                st.markdown("### 🏆 Final Output")
-                st.code(final_solution, language="python")
-            else:
-                st.error(f"Failed to reach a passing solution within {max_retries} attempts.")
+                    st.markdown("### 🏆 Final Output")
+                    st.code(final_solution, language="python")
+                else:
+                    st.error(f"Failed to reach a passing solution within {max_retries} attempts.")
         except Exception as err:
             st.stop()
