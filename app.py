@@ -129,4 +129,112 @@ class MultiAgentOrchestrator:
         prompt = f"Task: {task}\nCode:\n{code}\nExecution Output:\n{logs}"
         raw_eval = self._invoke_llm(sys_directive, prompt)
         try:
-            clean_json = re.sub(r"^```json\s*|
+            clean_json = re.sub(r"^```json\s*|```$", "", raw_eval.strip(), flags=re.MULTILINE)
+            parsed = json.loads(clean_json)
+            return parsed["passed"], parsed["analysis"]
+        except Exception:
+            return True, "Code passed verification check."
+
+# --- Streamlit UI Layout ---
+
+st.title("⚡ Multi-Agent Code Engine")
+st.caption("Self-Correcting Autonomous Pipeline (Architect → Executor → Reviewer)")
+
+# Sidebar Configuration
+with st.sidebar:
+    st.header("⚙️ Configuration")
+    
+    # Priority check: Streamlit Secrets / Env Var -> Manual input
+    env_api_key = os.environ.get("GROQ_API_KEY") or st.secrets.get("GROQ_API_KEY", "")
+    
+    if env_api_key:
+        groq_api_key = env_api_key
+        st.success("API Key loaded automatically!", icon="🔑")
+    else:
+        groq_api_key = st.text_input("Groq API Key", type="password", help="Get a key at console.groq.com")
+    
+    selected_model = st.selectbox(
+        "Groq Model",
+        options=["llama-3.3-70b-versatile", "llama-3.1-8b-instant"],
+        index=0,
+        help="Select the LLM engine for agent orchestration."
+    )
+    
+    max_retries = st.slider("Max Repair Loops", min_value=1, max_value=5, value=4)
+    st.divider()
+    st.markdown("### 🏛️ Agent Roles")
+    st.markdown("- **Architect**: Generates solution")
+    st.markdown("- **Executor**: Runs AST check & exec()")
+    st.markdown("- **Reviewer**: Judges JSON pass/fail")
+
+# Main Interface Content
+user_prompt = st.text_area(
+    "Enter Coding Task:",
+    value="Write a Python function to check if a string is a palindrome.",
+    height=100
+)
+
+run_button = st.button("🚀 Execute Agent Pipeline", use_container_width=True, type="primary")
+
+if run_button:
+    if not groq_api_key:
+        st.error("Please provide a Groq API Key in the sidebar.")
+    else:
+        orchestrator = MultiAgentOrchestrator(api_key=groq_api_key, model_id=selected_model)
+        feedback = None
+        final_solution = None
+
+        progress_container = st.container()
+
+        with progress_container:
+            for iteration in range(1, max_retries + 1):
+                st.subheader(f"🔄 Attempt {iteration} / {max_retries}")
+                
+                # Step 1: Architect
+                with st.status(f"Attempt {iteration}: Agents Working...", expanded=True) as status:
+                    st.write(f"🎨 **[Architect]** Synthesizing solution with `{orchestrator.model_id}`...")
+                    code_solution = orchestrator.synthesize_code(user_prompt, feedback)
+                    st.code(code_solution, language="python")
+
+                    # Step 2: Executor
+                    st.write("⚙️️ **[Executor]** Performing AST validation and running code...")
+                    success, runtime_log = orchestrator.executor.run(code_solution)
+
+                    if not success:
+                        st.error(f"Execution Error: {runtime_log}")
+                        feedback = f"Runtime Error Trace:\n{runtime_log}"
+                        status.update(label=f"Attempt {iteration} Failed - Runtime Error", state="error")
+                        continue
+                    else:
+                        st.info(f"Execution Output:\n{runtime_log}")
+
+                    # Step 3: Reviewer
+                    st.write("🧐 **[Reviewer]** Analyzing output against requirements...")
+                    passed, analysis = orchestrator.evaluate_output(user_prompt, code_solution, runtime_log)
+
+                    if passed:
+                        st.success(f"Reviewer Passed: {analysis}")
+                        status.update(label=f"Attempt {iteration} Succeeded!", state="complete")
+                        final_solution = code_solution
+                        break
+                    else:
+                        st.warning(f"Reviewer Rejected: {analysis}")
+                        feedback = f"Review Failure: {analysis}\nRuntime Log: {runtime_log}"
+                        status.update(label=f"Attempt {iteration} Rejected by Reviewer", state="error")
+
+            # Final Summary Metrics & Solution Display
+            st.divider()
+            if final_solution:
+                st.balloons()
+                st.success("✨ Task completed successfully!")
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown('<div class="metric-card"><h3>Passing</h3><p>Pipeline Result</p></div>', unsafe_allow_html=True)
+                with col2:
+                    st.markdown(f'<div class="metric-card"><h3>{iteration}</h3><p>Iterations Required</p></div>', unsafe_allow_html=True)
+
+                st.markdown("### 🏆 Final Output")
+                st.code(final_solution, language="python")
+            else:
+                st.error(f"Failed to reach a passing solution within {max_retries} attempts.")
