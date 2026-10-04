@@ -88,7 +88,7 @@ class IsolatedPythonExecutor:
             sys.stdout = old_stdout
 
 class MultiAgentOrchestrator:
-    def __init__(self, api_key: str, model_id: str = "llama-3.1-8b-instant"):
+    def __init__(self, api_key: str, model_id: str = "llama3-8b-8192"):
         self.client = Groq(api_key=api_key.strip())
         self.model_id = model_id
         self.executor = IsolatedPythonExecutor()
@@ -142,7 +142,7 @@ st.caption("Self-Correcting Autonomous Pipeline (Architect → Executor → Revi
 
 # Sidebar Configuration
 with st.sidebar:
-    st.header("⚙️️ Configuration")
+    st.header("⚙ Configuration")
     
     # Check Streamlit Secrets / Env Var / User Input
     env_api_key = os.environ.get("GROQ_API_KEY") or st.secrets.get("GROQ_API_KEY", "")
@@ -151,7 +151,7 @@ with st.sidebar:
     
     selected_model = st.selectbox(
         "Groq Model",
-        options=["llama-3.1-8b-instant", "llama-3.3-70b-versatile"],
+        options=["llama3-8b-8192", "llama3-70b-8192"],
         index=0,
         help="Select the LLM engine for agent orchestration."
     )
@@ -231,9 +231,9 @@ if run_button:
                     with col2:
                         st.markdown(f'<div class="metric-card"><h3>{iteration}</h3><p>Iterations Required</p></div>', unsafe_allow_html=True)
 
-                    st.markdown("### 🏆 Final Output")
-                    st.code(final_solution, language="python")
-                else:
-                    st.error(f"Failed to reach a passing solution within {max_retries} attempts.")
+                st.markdown("### 🏆 Final Output")
+                st.code(final_solution, language="python")
+            else:
+                st.error(f"Failed to reach a passing solution within {max_retries} attempts.")
         except Exception as err:
             st.stop()
